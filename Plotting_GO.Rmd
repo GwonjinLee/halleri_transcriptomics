@@ -1,0 +1,180 @@
+---
+title: "Plotting for GO analysis"
+author: "Gwonjin Lee"
+date: "August 23, 2019"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+#Install and load the packages
+```{r}
+
+library(ggplot2)
+library(gridExtra)
+library(lemon)
+
+```
+
+
+## Notice: There could be a lot of errors in terms of missing values, labels or aesthetics depending on your GO list, when using this script. So you need to modify the script of each line for your own data, and then adjust in Illustrator again.
+
+
+
+#Plotting for Treated vs untreated (2 populations)
+```{r}
+#Prepare a GO table containg columns for population, tissue, regulation (Up or down), Type (BP, CC, MF), GO_name, GO ID, p-value (-logP), Gene_number (the number of genes in the GO term)
+
+setwd("C:/Users/Justin/OneDrive - rub.de/PhD/Gwonjin/Experiment/Result/RNA seq/DESeq2/Result/New result3/CdvsCtr/GO/log2fc_0.5")
+GO_list0 <- read.delim("Duplicated/GO_all_CdvsCtr_0.5.txt", check.names=FALSE)
+
+GO_list1 <- split(GO_list0, GO_list0$Tissue) #Split the list per tissue
+
+GO_list_Root <- GO_list1$Root
+GO_list_Root$logPvalue <- ifelse(GO_list_Root$Regulation=="Down",GO_list_Root$logPvalue*-1, GO_list_Root$logPvalue) #Convert down-regulated GO to negative values (Root)
+
+GO_list_Shoot <- GO_list1$Shoot
+GO_list_Shoot$logPvalue <- ifelse(GO_list_Shoot$Regulation=="Down",GO_list_Shoot$logPvalue*-1, GO_list_Shoot$logPvalue) #Convert down-regulated GO to negative values (Shoot)
+
+GO_list_Root$just <- ifelse(GO_list_Root$Regulation=="Down",0,1) #Make a column for down-regulated GO name (for the opposite position) 
+GO_list_Shoot$just <- ifelse(GO_list_Shoot$Regulation=="Down",0,1) 
+
+GO_list_Root2 <- split(GO_list_Root, GO_list_Root$Population) #Split per population
+GO_list_Root_Pais <- GO_list_Root2$`Pais`
+GO_list_Root_Wall <- GO_list_Root2$`Wall`
+GO_list_Shoot2 <- split(GO_list_Shoot, GO_list_Shoot$Population)
+GO_list_Shoot_Pais <- GO_list_Shoot2$`Pais`
+GO_list_Shoot_Wall <- GO_list_Shoot2$`Wall`
+
+GO_list_Root$Population <- factor(GO_list_Root$Population, levels = c("Wall", "Pais"))
+GO_list_Shoot$Population <- factor(GO_list_Shoot$Population, levels = c("Wall", "Pais"))
+
+GO_Plot_Root <- ggplot(GO_list_Root, aes(y=logPvalue, x=reorder(GO_name, logPvalue), fill= Type, group=Population)) + 
+      geom_bar(position=position_dodge(), stat="identity", colour="grey50", size=0.5) +
+      facet_grid(Type ~ ., scales="free_y", space="free", labeller = label_bquote("")) +
+      scale_y_continuous( limits=c(-15,15), breaks = c(-15,-10,-5,0,5,10,15), labels=c(15,10,5,0,5,10,15)) +
+      scale_x_discrete("", labels=NULL) +
+      coord_flip()  +
+      labs(x= "", fill = "GO category", y=expression(
+        paste(bold("Down-regulated"),"            -log(adjusted ", italic("P"), "-value)            ", bold("Up-regulated")))) + 
+      theme_minimal() +
+      geom_text(aes(x=GO_name, y=0, label=GO_name), hjust=GO_list_Root$just, size = 6) +
+      geom_text(aes(label=Gene_number), 
+            position = position_stack(vjust = 0.5), size=5, fontface="bold") +
+      theme(axis.text.y=element_text(size=15),axis.text.x=element_text(size=10), axis.title=element_text(size=12), strip.text.x =
+            element_text(size=20), legend.text = element_text(size=12),legend.title = element_text(size=16)) +
+      theme(panel.grid.major = element_blank()) +
+      theme(panel.grid.minor = element_blank()) + 
+      geom_hline(yintercept = 0, col= "grey40")  + 
+      scale_fill_manual(values=c("brown1", "orange1","royalblue4")) 
+ 
+
+
+GO_Plot_Shoot <- ggplot(GO_list_Shoot, aes(y=logPvalue, x=reorder(GO_name, logPvalue), fill= Type, group=Population)) + 
+      geom_bar(position=position_dodge(), stat="identity", colour="grey50", size=0.5) +
+      facet_grid(Type ~ ., scales="free_y", space="free", labeller = label_bquote("")) +
+      scale_y_continuous( limits=c(-15,15), breaks = c(-15,-10,-5,0,5,10,15), labels=c(15,10,5,0,5,10,15)) +
+      scale_x_discrete("", labels=NULL) +
+      coord_flip()  +
+      labs(x= "", fill = "GO category", 
+           y=expression(
+        paste(bold("Down-regulated"),"            -log(adjusted ", italic("P"), "-value)            ", bold("Up-regulated")))) + 
+      theme_minimal() +
+      geom_text(aes(x=GO_name, y=0, label=GO_name), hjust=GO_list_Shoot$just, size = 6) +
+      geom_text(aes(label=Gene_number), 
+            position = position_stack(vjust = 0.5), size=5, fontface="bold") +
+      theme(axis.text.y=element_text(size=15),axis.text.x=element_text(size=10), axis.title=element_text(size=12), strip.text.x =
+            element_text(size=20), legend.text = element_text(size=12),legend.title = element_text(size=16)) +
+      theme(panel.grid.major = element_blank()) +
+      theme(panel.grid.minor = element_blank()) + 
+      geom_hline(yintercept = 0, col= "grey40")  + 
+      scale_fill_manual(values=c("brown1", "orange1","royalblue4")) 
+ 
+   
+
+GO_legend <- g_legend(GO_Plot_Root + theme(legend.position='bottom')) #For a common legend 
+
+grid.arrange(GO_Plot_Root+theme(legend.position='hidden') + theme(axis.line.x = element_line(color="black", size = 0.5)),
+             GO_Plot_Shoot+theme(legend.position='hidden')+ theme(axis.line.x = element_line(color="black", size = 0.5)), 
+             GO_legend,
+             layout_matrix = cbind(c(1,NA,2,NA,3)),
+             heights = c(2.5,0.1,1.6,0.1, 0.2)
+             )
+
+```
+
+
+#Plotting for population vs population
+```{r}
+# Consitutively differentially exressed DEGs in Noss
+setwd("C:/Users/Justin/OneDrive - rub.de/PhD/Gwonjin/Experiment/Result/RNA seq/DESeq2/Result/New result3/Table/CDEG_Noss_0.5/")
+
+New_GO_list0 <- read.delim("GO_Shared_DEGs_NvsPW_Ctr_forFig.txt")
+New_GO_list1 <- split(New_GO_list0, New_GO_list0$Tissue)
+New_GO_list_Root <- New_GO_list1$Root
+New_GO_list_Shoot <- New_GO_list1$Shoot
+
+New_GO_list_Root$logPvalue <- ifelse(New_GO_list_Root$Regulation=="Down",New_GO_list_Root$logPvalue*-1, New_GO_list_Root$logPvalue)
+
+New_GO_list_Shoot$logPvalue <- ifelse(New_GO_list_Shoot$Regulation=="Down",New_GO_list_Shoot$logPvalue*-1, New_GO_list_Shoot$logPvalue)
+
+
+New_GO_list_Root$just <- ifelse(New_GO_list_Root$Regulation=="Down",0,1)
+New_GO_list_Shoot$just <- ifelse(New_GO_list_Shoot$Regulation=="Down",0,1)
+
+
+New_GO_list_Root_gg <- ggplot(New_GO_list_Root, aes(y=logPvalue, x=reorder(GO_name, logPvalue), fill= Type)) + 
+      geom_bar( stat="identity") +  
+      facet_grid(Type ~ ., scales="free_y", space="free", labeller = label_bquote("") ) + 
+      scale_y_continuous( limits= c(-6,6), breaks = c(-6,-4,-2,0,2,4,6), labels=c(6,4,2,0,2,4,6)) +
+      scale_x_discrete("", labels=NULL) +
+      coord_flip()  +
+      labs(x= "", fill = "GO category", y=expression(
+        paste(bold("Lowly expressed in Noss"),"              -log(adjusted ", italic("P"), "-value)              ", bold("Highly expressed in Noss")))) + 
+      theme_minimal() +
+      geom_text(aes(x=GO_name, y=0, label=GO_name), hjust=New_GO_list_Root$just, size = 6) +
+      geom_text(aes(label=Gene_number), 
+            position = position_stack(vjust = 0.5), size=5, fontface="bold") +
+      theme(axis.text.y=element_text(size=15),axis.text.x=element_text(size=10), axis.title=element_text(size=12), strip.text.x =
+            element_text(size=20), legend.text = element_text(size=12),legend.title = element_text(size=16)) +
+      theme(panel.grid.major = element_blank()) +
+      theme(panel.grid.minor = element_blank()) + 
+      geom_hline(yintercept = 0, col= "grey40")  + 
+      scale_fill_manual(values=c("brown1", "orange1"))
+
+
+New_GO_list_Shoot_gg <- ggplot(New_GO_list_Shoot, aes(y=logPvalue, x=reorder(GO_name, logPvalue), fill= Type)) + 
+      geom_bar( stat="identity") +  
+      facet_grid(Type ~ ., scales="free_y", space="free", labeller = label_bquote("") ) + 
+      scale_y_continuous( limits= c(-3,3), breaks = c(-3,-2,-1,0,1,2,3), labels=c(3,2,1,0,1,2,3)) +
+      scale_x_discrete("", labels=NULL) +
+      coord_flip()  +
+      labs(x= "", fill = "GO category", y=expression(
+        paste(bold("Lowly expressed in Noss"),"              -log(adjusted ", italic("P"), "-value)              ", bold("Highly expressed in Noss")))) + 
+      theme_minimal() +
+      geom_text(aes(x=GO_name, y=0, label=GO_name), hjust=New_GO_list_Shoot$just, size = 6) +
+      geom_text(aes(label=Gene_number), 
+            position = position_stack(vjust = 0.5), size=5, fontface="bold") +
+      theme(axis.text.y=element_text(size=15),axis.text.x=element_text(size=10), axis.title=element_text(size=12), strip.text.x =
+            element_text(size=20), legend.text = element_text(size=12),legend.title = element_text(size=16)) +
+      theme(panel.grid.major = element_blank()) +
+      theme(panel.grid.minor = element_blank()) + 
+      geom_hline(yintercept = 0, col= "grey40")  + 
+      scale_fill_manual(values=c("brown1", "orange1","royalblue4"))
+  
+
+
+GO_legend2 <- g_legend(New_GO_list_Shoot_gg + theme(legend.position='bottom'))
+
+grid.arrange(New_GO_list_Root_gg+theme(legend.position='hidden') + theme(axis.line.x = element_line(color="black", size = 0.5)),
+             New_GO_list_Shoot_gg+theme(legend.position='hidden')+ theme(axis.line.x = element_line(color="black", size = 0.5)), 
+             GO_legend2,
+             layout_matrix = cbind(c(1,NA,2,NA,3)),
+             heights = c(1.2,0.3,1.2,0.1,0.2))
+             
+
+             
+```
+
+
